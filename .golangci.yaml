@@ -1,0 +1,4 @@
+linters:
+  default: standard
+exclusions:
+  generated: lax
