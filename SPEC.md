@@ -1,24 +1,24 @@
-# la Specification
+# al Specification
 
 ## 1. Overview
 
-`la` is a tool for exposing workspace-specific shortcut commands in the current shell.
+`al` is a tool for exposing workspace-specific shortcut commands in the current shell.
 
 The intended use cases are:
 
 - define commands per repository or working directory
-- run those commands via `la run <name>`
+- run those commands via `al run <name>`
 - optionally expose them as top-level commands such as `<name>`
 - expose them as `abbr` entries as well as `alias`-like commands
 - enable or disable them based on the current directory or environment
 
-Conceptually, `la` is closer to a user-specific interactive `Taskfile` than to a CI-oriented task runner.
+Conceptually, `al` is closer to a user-specific interactive `Taskfile` than to a CI-oriented task runner.
 
 ## 2. Goals
 
 - Provide workspace-specific command shortcuts.
 - Avoid permanently polluting the global shell environment.
-- Support both `la run <name>` and top-level invocation via `<name>`.
+- Support both `al run <name>` and top-level invocation via `<name>`.
 - Support both `alias` and `abbr`.
 - Allow each task to define activation conditions.
 - Keep configuration hand-editable and diff-friendly.
@@ -32,23 +32,23 @@ Conceptually, `la` is closer to a user-specific interactive `Taskfile` than to a
 
 ## 4. Primary Use Cases
 
-### 4.1 Explicit Invocation Through `la`
+### 4.1 Explicit Invocation Through `al`
 
 Users can run:
 
 ```sh
-la run test
-la run deploy
+al run test
+al run deploy
 ```
 
-`la` resolves the current workspace configuration, finds the requested task, evaluates its conditions, and executes the command.
+`al` resolves the current workspace configuration, finds the requested task, evaluates its conditions, and executes the command.
 
 ### 4.2 Top-Level Commands
 
 Users can opt in via `.zshrc` or similar:
 
 ```sh
-eval "$(la init zsh)"
+eval "$(al init zsh)"
 ```
 
 After initialization, commands defined for the current workspace can be invoked directly:
@@ -85,7 +85,7 @@ This is useful when:
 
 ## 6. Command Model
 
-### 6.1 `la run <name> [args...]`
+### 6.1 `al run <name> [args...]`
 
 Basic behavior:
 
@@ -101,15 +101,15 @@ Expected error cases:
 - the task exists but is currently disabled by its conditions
 - shell integration is required but unavailable
 
-### 6.2 `la init <shell>`
+### 6.2 `al init <shell>`
 
 Print shell integration code for the target shell.
 
 Examples:
 
 ```sh
-eval "$(la init zsh)"
-eval "$(la init bash)"
+eval "$(al init zsh)"
+eval "$(al init bash)"
 ```
 
 Responsibilities:
@@ -119,11 +119,11 @@ Responsibilities:
 - expose top-level commands as aliases, functions, or abbreviations depending on configuration
 - remove previously registered definitions when they are no longer active
 
-`la init <shell>` should be treated purely as a shell-integration code generator.
+`al init <shell>` should be treated purely as a shell-integration code generator.
 It should not directly perform workspace resolution or task registration on its own.
-Instead, the emitted hook code should call back into the `la` binary during prompt-time reevaluation.
+Instead, the emitted hook code should call back into the `al` binary during prompt-time reevaluation.
 
-### 6.3 `la list`
+### 6.3 `al list`
 
 List the tasks currently available in the active workspace.
 
@@ -135,13 +135,13 @@ Recommended output fields:
 - source config path
 - short description
 
-### 6.4 `la run <name> [args...]`
+### 6.4 `al run <name> [args...]`
 
 Execute a resolved task explicitly, without relying on top-level shell exposure.
 
 This provides a stable execution path even when `<name>` is also exposed via `alias` or `abbr`.
 
-### 6.5 `la doctor`
+### 6.5 `al doctor`
 
 Validate the current configuration and environment, and report:
 
@@ -157,10 +157,10 @@ Validate the current configuration and environment, and report:
 Recommended setup:
 
 ```sh
-eval "$(la init zsh)"
+eval "$(al init zsh)"
 ```
 
-The code emitted by `la init <shell>` should define at least a shell function named `la` and support:
+The code emitted by `al init <shell>` should define at least a shell function named `al` and support:
 
 - reflecting shell-state-changing subcommands in the current shell
 - updating active task registrations on each prompt reevaluation
@@ -170,9 +170,9 @@ Top-level task execution should primarily be implemented by pre-registering task
 
 Recommended separation of responsibilities:
 
-- `la init zsh` emits hook code only
+- `al init zsh` emits hook code only
 - the shell hook runs before each prompt
-- the hook calls back into the `la` binary to compute the current registration state
+- the hook calls back into the `al` binary to compute the current registration state
 - the binary returns shell code describing the required updates
 - the current shell applies those updates via `eval`
 
@@ -204,16 +204,16 @@ Top-level task resolution priority:
 
 1. shell builtins
 2. workspace tasks
-3. global tasks defined in `XDG_CONFIG_HOME/la/config.toml`
+3. global tasks defined in `XDG_CONFIG_HOME/al/config.toml`
 
 This priority describes task resolution order, not blanket override behavior for existing aliases, functions, or executables on `PATH`.
 
-Accordingly, when registering workspace or global tasks as top-level commands, `la` should check for conflicts against existing aliases, functions, and executables, and by default avoid registering conflicting names.
+Accordingly, when registering workspace or global tasks as top-level commands, `al` should check for conflicts against existing aliases, functions, and executables, and by default avoid registering conflicting names.
 
 General policy:
 
 - warn by default
-- report conflicts in `la doctor`
+- report conflicts in `al doctor`
 - allow explicit opt-in overriding via config
 - never allow shell builtins to be overridden, even when override is enabled
 
@@ -242,12 +242,12 @@ YAML may still be supported for compatibility, but TOML should remain the primar
 
 Recommended filename:
 
-- `.la.toml`
+- `.al.toml`
 
 Compatibility candidates:
 
-- `.la.yaml`
-- `.la.yml`
+- `.al.yaml`
+- `.al.yml`
 
 ### 8.2 Top-Level Structure
 
@@ -447,7 +447,7 @@ Internally, each condition primitive should separate at least the following resp
 This makes it easier to:
 
 - vary table/CEL support per primitive
-- report capabilities in `la doctor`
+- report capabilities in `al doctor`
 - generate docs or completion metadata from condition definitions
 
 ### 8.4.7 Path Resolution Semantics
@@ -465,7 +465,7 @@ Unless an explicit `shell` is configured, `run` is evaluated using the current s
 General policy:
 
 - top-level `alias` and `abbr` exposure should preserve natural interactive shell behavior
-- `la run` should execute via a shell, not via naive whitespace splitting
+- `al run` should execute via a shell, not via naive whitespace splitting
 
 ### 9.2 Runtime Modes
 
@@ -509,7 +509,7 @@ args = "append"
 Then:
 
 ```sh
-la k get pods
+al k get pods
 ```
 
 behaves like:
@@ -544,7 +544,7 @@ Because `abbr` support is shell-specific, it should be treated as a capability w
 
 - preferred: native abbreviation support from the shell or plugin
 - fallback: an approximation using shell functions or similar mechanisms
-- final fallback: report the feature as unsupported while keeping the task available through `la run`
+- final fallback: report the feature as unsupported while keeping the task available through `al run`
 
 ## 11. Config Discovery
 
@@ -552,15 +552,15 @@ Configuration should be discovered by searching upward from `$PWD`.
 
 If multiple supported config files exist in the same directory, the precedence is:
 
-1. `.la.toml`
-2. `.la.yaml`
-3. `.la.yml`
+1. `.al.toml`
+2. `.al.yaml`
+3. `.al.yml`
 
 The first match wins.
 
 ### 11.1 Global Config
 
-User-level global configuration should be supported at `XDG_CONFIG_HOME/la/config.toml`.
+User-level global configuration should be supported at `XDG_CONFIG_HOME/al/config.toml`.
 
 This file is intended for common tasks not tied to any specific workspace.
 
@@ -570,16 +570,16 @@ Task resolution priority:
 
 1. shell builtins
 2. tasks from the current workspace
-3. tasks from `XDG_CONFIG_HOME/la/config.toml`
+3. tasks from `XDG_CONFIG_HOME/al/config.toml`
 
-This applies to both `la run <name>` and top-level command exposure.
+This applies to both `al run <name>` and top-level command exposure.
 
 If a task name exists in both workspace and global config, the workspace definition wins.
 
 ## 12. Security and Safety
 
-- `la` is a local convenience tool; commands are assumed to be user-authored and trusted
-- `la init` must only emit shell integration code and must not execute workspace commands during initialization
+- `al` is a local convenience tool; commands are assumed to be user-authored and trusted
+- `al init` must only emit shell integration code and must not execute workspace commands during initialization
 - entering a directory must not automatically execute tasks
 - prompt-time updates must be limited to registration and deregistration
 
@@ -587,10 +587,10 @@ If a task name exists in both workspace and global config, the workspace definit
 
 The first usable version should support at least:
 
-- `la run <name>`
-- `la init zsh`
+- `al run <name>`
+- `al init zsh`
 - upward config discovery
-- `.la.toml`
+- `.al.toml`
 - `run`
 - `mode = "alias" | "abbr"`
 - `runtime = "current-shell" | "subshell"`
@@ -704,7 +704,7 @@ Recommended order of implementation:
 1. define the internal model around `Task`, `Condition`, `EvalContext`, `Registry`, and `Runner`
 2. implement condition primitives and the shared evaluation layer
 3. implement runtime mode handling
-4. implement `la run`, `la list`, and `la doctor` against the internal model
+4. implement `al run`, `al list`, and `al doctor` against the internal model
 5. implement zsh prompt reevaluation and top-level task registration
 6. implement conditional activation
 7. add config parsing and upward config discovery
