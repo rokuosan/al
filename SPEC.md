@@ -2,48 +2,66 @@
 
 ## 1. Overview
 
-`al` is a tool for exposing workspace-specific shortcut commands in the current shell.
+`al` is a tool for exposing context-sensitive command aliases in the current shell.
 
 The intended use cases are:
 
-- define commands per repository or working directory
+- define personal command aliases that become available only in matching repositories or directories
+- keep most definitions in `XDG_CONFIG_HOME/al/config.toml`
+- optionally add workspace-local definitions when a repository needs them
 - run those commands via `al run <name>`
 - optionally expose them as top-level commands such as `<name>`
 - expose them as `abbr` entries as well as `alias`-like commands
 - enable or disable them based on the current directory or environment
 
-Conceptually, `al` is closer to a user-specific interactive `Taskfile` than to a CI-oriented task runner.
+Conceptually, `al` is not a general task runner.
+It is a personal alias layer whose entries are activated by workspace and shell context.
+The core value is that the same user can define short commands once and have them appear only where they make sense.
 
 ## 2. Goals
 
-- Provide workspace-specific command shortcuts.
+- Provide context-sensitive aliases for interactive shell usage.
 - Avoid permanently polluting the global shell environment.
 - Support both `al run <name>` and top-level invocation via `<name>`.
 - Support both `alias` and `abbr`.
-- Allow each task to define activation conditions.
+- Allow each alias to define activation conditions.
 - Keep configuration hand-editable and diff-friendly.
+- Make user-level global config the primary configuration model.
 
 ## 3. Non-Goals
 
-- Replacing `make`, `task`, or CI job definitions.
+- Replacing `make`, `task`, `Taskfile`, or CI job definitions.
 - Embedding a general-purpose programming language into the config format.
 - Automatically synchronizing config across users.
 - Guaranteeing identical behavior across every shell.
+- Acting as a repository-owned automation standard by default.
 
 ## 4. Primary Use Cases
 
-### 4.1 Explicit Invocation Through `al`
+### 4.1 Personal Contextual Aliases
+
+The primary model is that a user keeps definitions in `XDG_CONFIG_HOME/al/config.toml` and attaches conditions such as:
+
+- only inside a Git repository
+- only under `apps/web`
+- only when `docker compose` files exist
+- only in a specific shell
+
+This allows one personal config file to behave like a set of directory-scoped aliases.
+
+### 4.2 Explicit Invocation Through `al`
 
 Users can run:
 
 ```sh
-al run test
-al run deploy
+al run gs
+al run web
 ```
 
-`al` resolves the current workspace configuration, finds the requested task, evaluates its conditions, and executes the command.
+`al run <name>` is the explicit execution path for a contextual alias.
+It resolves the active definitions, finds the requested entry, evaluates its conditions, and executes the command.
 
-### 4.2 Top-Level Commands
+### 4.3 Top-Level Commands
 
 Users can opt in via `.zshrc` or similar:
 
@@ -54,15 +72,15 @@ eval "$(al init zsh)"
 After initialization, commands defined for the current workspace can be invoked directly:
 
 ```sh
-$ test
-$ deploy
+$ gs
+$ web
 ```
 
-This is meant for interactive shell usage where workspace-specific commands should feel native.
+This is meant for interactive shell usage where context-sensitive aliases should feel native.
 
-### 4.3 `abbr` Exposure
+### 4.4 `abbr` Exposure
 
-If the shell or shell plugin supports abbreviation-style expansion, a task may be exposed as `abbr` instead of a plain alias.
+If the shell or shell plugin supports abbreviation-style expansion, an alias entry may be exposed as `abbr` instead of a plain alias.
 
 This is useful when:
 
@@ -74,14 +92,14 @@ This is useful when:
 
 - `workspace`
   The directory context used for config discovery.
-- `task`
-  A single command definition in configuration.
+- `contextual alias`
+  A user-defined command shortcut that is only active when its conditions match the current workspace or shell context.
 - `alias mode`
-  A mode that exposes a task as a shell alias or shell function.
+  A mode that exposes an alias entry as a shell alias or shell function.
 - `abbr mode`
-  A mode that exposes a task through abbreviation expansion.
+  A mode that exposes an alias entry through abbreviation expansion.
 - `condition`
-  A predicate that decides whether a task is active in the current context.
+  A predicate that decides whether an alias entry is active in the current context.
 
 ## 6. Command Model
 
@@ -90,15 +108,15 @@ This is useful when:
 Basic behavior:
 
 1. Discover configuration by searching upward from the current directory.
-2. Resolve the task named `<name>`.
-3. Evaluate the task's activation conditions.
+2. Resolve the contextual alias named `<name>`.
+3. Evaluate its activation conditions.
 4. Execute the configured command, optionally forwarding extra arguments.
 
 Expected error cases:
 
-- the task does not exist
+- the alias does not exist
 - the config is invalid
-- the task exists but is currently disabled by its conditions
+- the alias exists but is currently disabled by its conditions
 - shell integration is required but unavailable
 
 ### 6.2 `al init <shell>`
@@ -120,24 +138,24 @@ Responsibilities:
 - remove previously registered definitions when they are no longer active
 
 `al init <shell>` should be treated purely as a shell-integration code generator.
-It should not directly perform workspace resolution or task registration on its own.
+It should not directly perform workspace resolution or alias registration on its own.
 Instead, the emitted hook code should call back into the `al` binary during prompt-time reevaluation.
 
 ### 6.3 `al list`
 
-List the tasks currently available in the active workspace.
+List the contextual aliases currently available in the active context.
 
 Recommended output fields:
 
 - name
 - mode (`alias`, `abbr`, `command-only`)
-- whether the task is enabled
+- whether the alias is enabled
 - source config path
 - short description
 
 ### 6.4 `al run <name> [args...]`
 
-Execute a resolved task explicitly, without relying on top-level shell exposure.
+Execute a resolved contextual alias explicitly, without relying on top-level shell exposure.
 
 This provides a stable execution path even when `<name>` is also exposed via `alias` or `abbr`.
 
@@ -148,7 +166,7 @@ Validate the current configuration and environment, and report:
 - parse errors
 - naming conflicts
 - unsupported shell features
-- tasks that exist but are currently disabled by conditions
+- aliases that exist but are currently disabled by conditions
 
 ## 7. Shell Integration Model
 
@@ -163,10 +181,10 @@ eval "$(al init zsh)"
 The code emitted by `al init <shell>` should define at least a shell function named `al` and support:
 
 - reflecting shell-state-changing subcommands in the current shell
-- updating active task registrations on each prompt reevaluation
+- updating active alias registrations on each prompt reevaluation
 - delegating non-shell-mutating execution to the binary
 
-Top-level task execution should primarily be implemented by pre-registering tasks as shell functions.
+Top-level alias execution should primarily be implemented by pre-registering matching entries as shell functions.
 
 Recommended separation of responsibilities:
 
@@ -180,14 +198,14 @@ This follows the same general integration shape used by tools such as `direnv`: 
 
 ### 7.2 Workspace Activation
 
-The shell should reevaluate workspace state whenever a prompt is displayed and update registered tasks as needed.
+The shell should reevaluate workspace state whenever a prompt is displayed and update registered aliases as needed.
 
 From the user's perspective, changes to configuration should be reflected by the next prompt.
 
 Top-level registration policy:
 
-- `alias mode` tasks are pre-registered as shell functions or aliases
-- `abbr mode` tasks are registered as abbreviations when the shell supports that capability
+- `alias mode` entries are pre-registered as shell functions or aliases
+- `abbr mode` entries are registered as abbreviations when the shell supports that capability
 - conflicts are checked before registration
 - shell builtins always have highest priority and must not be overridden
 - existing shell definitions and commands on `PATH` must not be silently overridden
@@ -198,17 +216,17 @@ Regardless of optimization strategy, the externally visible behavior should prio
 
 ### 7.3 Naming Conflicts
 
-Tasks must not silently override existing shell builtins, aliases, functions, or executables.
+Alias entries must not silently override existing shell builtins, aliases, functions, or executables.
 
-Top-level task resolution priority:
+Top-level contextual alias resolution priority:
 
 1. shell builtins
-2. workspace tasks
-3. global tasks defined in `XDG_CONFIG_HOME/al/config.toml`
+2. workspace-defined aliases
+3. global aliases defined in `XDG_CONFIG_HOME/al/config.toml`
 
-This priority describes task resolution order, not blanket override behavior for existing aliases, functions, or executables on `PATH`.
+This priority describes contextual alias resolution order, not blanket override behavior for existing aliases, functions, or executables on `PATH`.
 
-Accordingly, when registering workspace or global tasks as top-level commands, `al` should check for conflicts against existing aliases, functions, and executables, and by default avoid registering conflicting names.
+Accordingly, when registering workspace or global aliases as top-level commands, `al` should check for conflicts against existing aliases, functions, and executables, and by default avoid registering conflicting names.
 
 General policy:
 
@@ -259,35 +277,38 @@ version = 1
 [settings]
 conflict_policy = "warn"
 
-[task.test]
-run = "go test ./..."
+[alias.gs]
+run = "git status --short"
 mode = "alias"
 runtime = "subshell"
-description = "Run the full test suite"
+description = "Short status for the current repository"
 
-[task.gs]
-run = "git status --short"
+[alias.gcob]
+run = "git checkout -b"
 mode = "abbr"
+description = "Start a new branch and keep the expanded command editable"
 
-[task.dev]
-run = "docker compose up app"
+[alias.dc]
+run = "docker compose"
 mode = "alias"
-runtime = "current-shell"
+runtime = "subshell"
+description = "Short alias for docker compose in compose-based repos"
 
-[task.dev.when]
+[alias.dc.when]
 git = true
 exists_any = ["docker-compose.yml", "compose.yaml"]
 
-[task.preview]
+[alias.web]
 run = "pnpm dev"
 mode = "abbr"
 runtime = "subshell"
+description = "Start the web app dev server when inside apps/web"
 when = 'inside("apps/web") && exists("package.json") && has_command("pnpm") && shell() == "zsh"'
 ```
 
-### 8.3 Task Schema
+### 8.3 Alias Schema
 
-Each task may define:
+Each alias entry may define:
 
 - `run`: required, the command string to execute
 - `description`: optional, a human-readable description
@@ -302,19 +323,19 @@ Each task may define:
 `runtime` semantics:
 
 - `current-shell`
-  Evaluate the task in the caller's current shell context. Side effects such as `cd`, `export`, `alias`, and `source` affect the caller.
+  Evaluate the alias command in the caller's current shell context. Side effects such as `cd`, `export`, `alias`, and `source` affect the caller.
 - `subshell`
-  Run the task in a child shell. Environment and directory changes do not affect the caller.
+  Run the alias command in a child shell. Environment and directory changes do not affect the caller.
 
 The default should be `subshell` for safety.
 
-Tasks with `override = true` may be registered even when they conflict with aliases, functions, or executables.
+Alias entries with `override = true` may be registered even when they conflict with aliases, functions, or executables.
 
 Conflicts with shell builtins must never be allowed.
 
 ### 8.4 Condition Schema
 
-`when` controls whether a task is active in the current context.
+`when` controls whether an alias entry is active in the current context.
 
 `when` supports two forms:
 
@@ -347,11 +368,11 @@ Evaluation rules:
 Example:
 
 ```toml
-[task.preview]
+[alias.web]
 run = "pnpm dev"
 mode = "abbr"
 
-[task.preview.when]
+[alias.web.when]
 exists = ["package.json"]
 has_command = ["pnpm"]
 shell = ["zsh"]
@@ -364,7 +385,7 @@ For more expressive conditions, `when` may be written as a CEL expression string
 Example:
 
 ```toml
-[task.preview]
+[alias.web]
 run = "pnpm dev"
 mode = "abbr"
 when = 'inside("apps/web") && exists("package.json") && has_command("pnpm") && shell() == "zsh"'
@@ -469,12 +490,12 @@ General policy:
 
 ### 9.2 Runtime Modes
 
-Task execution is controlled by `runtime`.
+Alias command execution is controlled by `runtime`.
 
 - `runtime = "subshell"`
   Run in a child shell. This should be the default for normal command execution.
 - `runtime = "current-shell"`
-  Evaluate in the current shell. This is intended for tasks with shell-state side effects.
+  Evaluate in the current shell. This is intended for alias entries with shell-state side effects.
 
 Typical `current-shell` examples:
 
@@ -485,11 +506,11 @@ Typical `current-shell` examples:
 
 ### 9.3 Inheriting Existing Shell State
 
-All task executions should inherit environment variables from the caller's shell.
+All alias executions should inherit environment variables from the caller's shell.
 
-Tasks with `runtime = "current-shell"` should additionally be able to use aliases and functions already defined in the caller's shell context.
+Alias entries with `runtime = "current-shell"` should additionally be able to use aliases and functions already defined in the caller's shell context.
 
-For example, if the user has `g='git'` defined in their shell, then `run = "g status"` is considered valid for a `current-shell` task.
+For example, if the user has `g='git'` defined in their shell, then `run = "g status"` is considered valid for a `current-shell` alias entry.
 
 For `runtime = "subshell"`, environment variables are inherited, but aliases and functions are not guaranteed to be available.
 
@@ -500,7 +521,7 @@ By default, extra CLI arguments are appended to `run`.
 Example:
 
 ```toml
-[task.k]
+[alias.k]
 run = "kubectl"
 mode = "abbr"
 args = "append"
@@ -544,7 +565,7 @@ Because `abbr` support is shell-specific, it should be treated as a capability w
 
 - preferred: native abbreviation support from the shell or plugin
 - fallback: an approximation using shell functions or similar mechanisms
-- final fallback: report the feature as unsupported while keeping the task available through `al run`
+- final fallback: report the feature as unsupported while keeping the alias available through `al run`
 
 ## 11. Config Discovery
 
@@ -562,25 +583,27 @@ The first match wins.
 
 User-level global configuration should be supported at `XDG_CONFIG_HOME/al/config.toml`.
 
-This file is intended for common tasks not tied to any specific workspace.
+This file is the primary place for user-authored aliases.
+Entries in this file are typically still conditional, so they can target specific repositories, subdirectories, tools, or shells without requiring repository-owned config.
 
 ### 11.2 Relationship Between Workspace and Global Config
 
-Task resolution priority:
+Alias resolution priority:
 
 1. shell builtins
-2. tasks from the current workspace
-3. tasks from `XDG_CONFIG_HOME/al/config.toml`
+2. aliases from the current workspace
+3. aliases from `XDG_CONFIG_HOME/al/config.toml`
 
 This applies to both `al run <name>` and top-level command exposure.
 
-If a task name exists in both workspace and global config, the workspace definition wins.
+If an alias name exists in both workspace and global config, the workspace definition wins.
+Workspace config is an override layer, not the primary product model.
 
 ## 12. Security and Safety
 
 - `al` is a local convenience tool; commands are assumed to be user-authored and trusted
 - `al init` must only emit shell integration code and must not execute workspace commands during initialization
-- entering a directory must not automatically execute tasks
+- entering a directory must not automatically execute aliases
 - prompt-time updates must be limited to registration and deregistration
 
 ## 13. Suggested MVP
@@ -598,7 +621,7 @@ The first usable version should support at least:
 - CEL-form `when`
 - condition primitive exposure metadata
 - shared evaluation primitives such as `inside()`, `exists()`, and `has_command()`
-- prompt-based reevaluation and task re-registration
+- prompt-based reevaluation and alias re-registration
 
 Can be deferred:
 
@@ -617,9 +640,9 @@ Can be deferred:
 
 The implementation should be centered on an internal model that is independent from config file syntax.
 
-### 15.1 Task
+### 15.1 AliasEntry
 
-`Task` represents one executable unit.
+`AliasEntry` represents one executable unit normalized from config.
 
 Minimum responsibilities:
 
@@ -633,7 +656,7 @@ Minimum responsibilities:
 
 ### 15.2 Condition
 
-`Condition` is the abstraction that determines whether a task is active in the current context.
+`Condition` is the abstraction that determines whether an `AliasEntry` is active in the current context.
 
 Design principles:
 
@@ -656,18 +679,18 @@ It may later grow to include OS information, Git state, and other derived contex
 
 ### 15.4 Registry
 
-`Registry` stores tasks for resolution.
+`Registry` stores alias entries for resolution.
 
 At minimum it should support:
 
-- workspace tasks
-- global tasks
+- workspace alias entries
+- global alias entries
 
 Resolution must follow the precedence rules defined by this specification.
 
 ### 15.5 Runner
 
-`Runner` is responsible for task execution.
+`Runner` is responsible for alias execution.
 
 Minimum responsibilities:
 
@@ -678,14 +701,14 @@ Minimum responsibilities:
 
 ### 15.6 Shell Integration
 
-Shell integration is responsible for registration and synchronization of top-level task exposure.
+Shell integration is responsible for registration and synchronization of top-level alias exposure.
 
 Minimum responsibilities:
 
 - prompt-time reevaluation
-- top-level task registration
+- top-level alias registration
 - conflict checks against existing definitions
-- deregistration of previously registered tasks
+- deregistration of previously registered aliases
 
 ### 15.7 Architectural Separation
 
@@ -693,7 +716,7 @@ The implementation should separate at least these three layers:
 
 - config parsing
 - normalization into the internal model
-- task resolution, condition evaluation, and shell integration
+- alias resolution, condition evaluation, and shell integration
 
 With that separation in place, config file syntax can be replaced or extended later without forcing a redesign of core behavior.
 
@@ -701,11 +724,11 @@ With that separation in place, config file syntax can be replaced or extended la
 
 Recommended order of implementation:
 
-1. define the internal model around `Task`, `Condition`, `EvalContext`, `Registry`, and `Runner`
+1. define the internal model around `AliasEntry`, `Condition`, `EvalContext`, `Registry`, and `Runner`
 2. implement condition primitives and the shared evaluation layer
 3. implement runtime mode handling
 4. implement `al run`, `al list`, and `al doctor` against the internal model
-5. implement zsh prompt reevaluation and top-level task registration
+5. implement zsh prompt reevaluation and top-level alias registration
 6. implement conditional activation
 7. add config parsing and upward config discovery
 8. add `abbr` support and fallback behavior
