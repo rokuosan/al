@@ -8,11 +8,11 @@ import (
 
 func TestCLI(t *testing.T) {
 	tests := []struct {
-		name          string
-		args          []string
-		wantOut       string
-		wantErr       string
-		wantNoError   bool
+		name        string
+		args        []string
+		wantOut     string
+		wantErr     string
+		wantNoError bool
 	}{
 		{
 			name:        "help by default",
