@@ -21,9 +21,10 @@ func TestCLI(t *testing.T) {
 			wantNoError: true,
 		},
 		{
-			name:    "list exists",
-			args:    []string{"list"},
-			wantErr: "list is not implemented yet",
+			name:        "list exists",
+			args:        []string{"list"},
+			wantOut:     "hello",
+			wantNoError: true,
 		},
 		{
 			name:    "run requires task name",

@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 
+	"github.com/rokuosan/al/internal/condition"
 	"github.com/rokuosan/al/internal/model"
 )
 
@@ -143,14 +145,23 @@ func normalizeCondition(when WhenConfig) model.Condition {
 	if when.Empty() {
 		return model.TrueCondition{}
 	}
-	return DeferredCondition{When: when}
+	return condition.Table{
+		Git:        when.Git,
+		Inside:     slices.Clone(when.Inside),
+		Exists:     slices.Clone(when.Exists),
+		ExistsAny:  slices.Clone(when.ExistsAny),
+		Env:        cloneEnv(when.Env),
+		HasCommand: slices.Clone(when.HasCommand),
+		OS:         slices.Clone(when.OS),
+		Shell:      slices.Clone(when.Shell),
+	}
 }
 
-// DeferredCondition is a placeholder until the shared condition evaluator exists.
-type DeferredCondition struct {
-	When WhenConfig
-}
-
-func (d DeferredCondition) Evaluate(model.EvalContext) (bool, error) {
-	return false, fmt.Errorf("condition evaluation is not implemented yet")
+func cloneEnv(env map[string]string) map[string]string {
+	if env == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(env))
+	maps.Copy(cloned, env)
+	return cloned
 }
