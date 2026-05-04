@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/rokuosan/al/internal/config"
 	"github.com/rokuosan/al/internal/model"
@@ -51,6 +52,7 @@ func newRunCmd(provider config.Provider, commandRunner runner.Runner) *cobra.Com
 			}
 
 			evalCtx := model.NewEvalContext(wd, wd, runner.DefaultShellName(), envMap())
+			evalCtx.InGitRepo = detectGitRepo(wd)
 			enabled, err := resolved.Entry.ConditionOrDefault().Evaluate(evalCtx)
 			if err != nil {
 				return fmt.Errorf("evaluate alias %q: %w", resolved.Entry.Name, err)
@@ -63,6 +65,20 @@ func newRunCmd(provider config.Provider, commandRunner runner.Runner) *cobra.Com
 			commandRunner.Stderr = cmd.ErrOrStderr()
 			return commandRunner.Run(resolved.Entry, args[1:])
 		},
+	}
+}
+
+func detectGitRepo(startDir string) bool {
+	dir := filepath.Clean(startDir)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return false
+		}
+		dir = parent
 	}
 }
 

@@ -3,6 +3,7 @@ package config
 import (
 	"testing"
 
+	"github.com/rokuosan/al/internal/condition"
 	"github.com/rokuosan/al/internal/model"
 )
 
@@ -36,7 +37,7 @@ func TestConfigNormalizeAppliesDefaultsAndSourcePath(t *testing.T) {
 	}
 }
 
-func TestConfigNormalizeUsesDeferredConditionForNonEmptyWhen(t *testing.T) {
+func TestConfigNormalizeUsesTableConditionForNonEmptyWhen(t *testing.T) {
 	cfg := Config{
 		Aliases: map[string]AliasConfig{
 			"web": {
@@ -53,8 +54,8 @@ func TestConfigNormalizeUsesDeferredConditionForNonEmptyWhen(t *testing.T) {
 		t.Fatalf("Normalize() error = %v", err)
 	}
 
-	if _, ok := entries[0].Condition.(DeferredCondition); !ok {
-		t.Fatalf("entries[0].Condition = %T, want DeferredCondition", entries[0].Condition)
+	if _, ok := entries[0].Condition.(condition.Table); !ok {
+		t.Fatalf("entries[0].Condition = %T, want condition.Table", entries[0].Condition)
 	}
 }
 

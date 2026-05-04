@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"runtime"
 )
@@ -174,8 +175,6 @@ func cloneEnv(env map[string]string) map[string]string {
 		return map[string]string{}
 	}
 	cloned := make(map[string]string, len(env))
-	for k, v := range env {
-		cloned[k] = v
-	}
+	maps.Copy(cloned, env)
 	return cloned
 }
