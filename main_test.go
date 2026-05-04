@@ -31,9 +31,10 @@ func TestCLI(t *testing.T) {
 			wantErr: "requires at least 1 arg",
 		},
 		{
-			name:    "run exists",
-			args:    []string{"run", "hello"},
-			wantErr: "run is not implemented yet",
+			name:        "run exists",
+			args:        []string{"run", "hello"},
+			wantOut:     "hello",
+			wantNoError: true,
 		},
 		{
 			name:    "doctor exists",
