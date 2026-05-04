@@ -54,7 +54,7 @@ func TestListCmdMarksDisabledAliases(t *testing.T) {
 						"hello": {
 							Run: "printf 'hello\\n'",
 							When: config.WhenConfig{
-								Shell: []string{"bash"},
+								Shell: []string{"definitely-not-the-current-shell"},
 							},
 						},
 					},
